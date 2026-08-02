@@ -1,18 +1,21 @@
 <h1 align="center">Udhaar Wise</h1>
 
 <p align="center">
-  <b>AI-powered WhatsApp-first Business OS for MSMEs</b>
+  AI-powered WhatsApp-first Business OS for Small Businesses
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/React-18-blue" />
-  <img src="https://img.shields.io/badge/Node.js-Express-green" />
-  <img src="https://img.shields.io/badge/Supabase-PostgreSQL-3FCF8E" />
-  <img src="https://img.shields.io/badge/Gemini-AI-orange" />
-  <img src="https://img.shields.io/badge/Groq-Whisper-purple" />
-  <img src="https://img.shields.io/badge/WhatsApp-Business-success" />
+  <img src="https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=white" />
+  <img src="https://img.shields.io/badge/Node.js-Express-339933?style=for-the-badge&logo=node.js&logoColor=white" />
+  <img src="https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white" />
+  <img src="https://img.shields.io/badge/Google-Gemini-4285F4?style=for-the-badge&logo=google&logoColor=white" />
+  <img src="https://img.shields.io/badge/Groq-Whisper-FF6B35?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/WhatsApp-Business-25D366?style=for-the-badge&logo=whatsapp&logoColor=white" />
 </p>
 
+<p align="center">
+  <img src="Screenshots/landing-page.jpeg" alt="Udhaar Wise Dashboard" width="100%" />
+</p>
 ## Problem Statement
 
 Small shopkeepers in India face multiple challenges:
