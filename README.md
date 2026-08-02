@@ -1,6 +1,6 @@
 # Udhaar Wise
 
-![Dashboard](screenshots/landing-page.png)
+![Dashboard](Screenshots/landing-page.jpeg)
 
 A comprehensive business management platform for small shopkeepers that combines AI-powered order processing, inventory management, customer intelligence, and WhatsApp Business integration.
 
@@ -338,16 +338,16 @@ https://canva.link/kh6sjf4xsx8oc8z
 ## 📸 Screenshots
 
 ### Dashboard
-![Dashboard](screenshots/dashboard.png)
+![Dashboard](Screenshots/dashboard.jpeg)
 
 ### Orders & Inventory
-![Orders](screenshots/orders.png)
+![Orders](Screenshots/orders.jpeg)
 
 ### Customer Intelligence
-![Customer Intelligence](screenshots/Customers.png)
+![Customer Intelligence](Screenshots/Customers.jpeg)
 
 ### Funding and Government Schemes
-![WhatsApp](screenshots/Funding.png)
+![WhatsApp](Screenshots/Funding.jpeg)
 
 ## Future Enhancements
 
