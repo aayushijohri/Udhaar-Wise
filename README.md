@@ -341,7 +341,7 @@ https://canva.link/kh6sjf4xsx8oc8z
 ![Dashboard](Screenshots/dashboard.jpeg)
 
 ### Orders & Inventory
-![Orders](Screenshots/orders.jpeg)
+![Orders](Screenshots/orders.png)
 
 ### Customer Intelligence
 ![Customer Intelligence](Screenshots/Customers.jpeg)
