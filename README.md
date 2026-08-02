@@ -16,6 +16,7 @@
 <p align="center">
   <img src="Screenshots/landing-page.jpeg" alt="Udhaar Wise Dashboard" width="100%" />
 </p>
+
 ## Problem Statement
 
 Small shopkeepers in India face multiple challenges:
