@@ -1,15 +1,17 @@
-# Udhaar Wise
+<h1 align="center">Udhaar Wise</h1>
 
-![Dashboard](Screenshots/landing-page.jpeg)
+<p align="center">
+  <b>AI-powered WhatsApp-first Business OS for MSMEs</b>
+</p>
 
-A comprehensive business management platform for small shopkeepers that combines AI-powered order processing, inventory management, customer intelligence, and WhatsApp Business integration.
-
-![React](https://img.shields.io/badge/React-18-blue)
-![Node.js](https://img.shields.io/badge/Node.js-Express-green)
-![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3FCF8E)
-![Gemini](https://img.shields.io/badge/AI-Gemini-orange)
-![Groq](https://img.shields.io/badge/Speech-Groq-purple)
-![WhatsApp](https://img.shields.io/badge/API-WhatsApp-success)
+<p align="center">
+  <img src="https://img.shields.io/badge/React-18-blue" />
+  <img src="https://img.shields.io/badge/Node.js-Express-green" />
+  <img src="https://img.shields.io/badge/Supabase-PostgreSQL-3FCF8E" />
+  <img src="https://img.shields.io/badge/Gemini-AI-orange" />
+  <img src="https://img.shields.io/badge/Groq-Whisper-purple" />
+  <img src="https://img.shields.io/badge/WhatsApp-Business-success" />
+</p>
 
 ## Problem Statement
 
