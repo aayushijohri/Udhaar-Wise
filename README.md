@@ -1,6 +1,15 @@
 # Udhaar Wise
 
+![Dashboard](screenshots/dashboard.png)
+
 A comprehensive business management platform for small shopkeepers that combines AI-powered order processing, inventory management, customer intelligence, and WhatsApp Business integration.
+
+![React](https://img.shields.io/badge/React-18-blue)
+![Node.js](https://img.shields.io/badge/Node.js-Express-green)
+![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3FCF8E)
+![Gemini](https://img.shields.io/badge/AI-Gemini-orange)
+![Groq](https://img.shields.io/badge/Speech-Groq-purple)
+![WhatsApp](https://img.shields.io/badge/API-WhatsApp-success)
 
 ## Problem Statement
 
@@ -323,30 +332,24 @@ The database is hosted on Supabase. Ensure:
 
 ## Demo
 
-### Demo Video
-[Placeholder for demo video link]
-
 ### Presentation
-[Placeholder for presentation link]
+https://canva.link/kh6sjf4xsx8oc8z
 
-### Live Demo
-[Placeholder for live demo link]
-
-## Screenshots
+## 📸 Screenshots
 
 ### Dashboard
-[Placeholder for dashboard screenshot]
+![Dashboard](screenshots/dashboard.png)
 
-### Orders Management
-[Placeholder for orders screenshot]
-
-### Inventory Control
-[Placeholder for inventory screenshot]
+### Orders & Inventory
+![Orders](screenshots/orders.png)
 
 ### Customer Intelligence
-[Placeholder for customer intelligence screenshot]
+![Customer Intelligence](screenshots/customer-ai.png)
 
-## Future Scope
+### WhatsApp Order Flow
+![WhatsApp](screenshots/whatsapp.png)
+
+## Future Enhancements
 
 - **One-click PDF Export**: Generate PDF reports for orders, inventory, and customer statements
 - **Funding & Government Schemes**: Enhanced integration with government schemes and funding options
@@ -355,14 +358,8 @@ The database is hosted on Supabase. Ensure:
 - **Multi-language Support**: Support for regional Indian languages
 - **Mobile App**: Native mobile application for shopkeepers
 
-## Team
-
-[Placeholder for team members]
-
 ## License
 
 MIT License - See LICENSE file for details
-
-## Support
 
 For issues and questions, please open an issue on the GitHub repository.
