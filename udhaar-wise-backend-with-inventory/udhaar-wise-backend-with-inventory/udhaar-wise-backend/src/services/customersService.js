@@ -1,5 +1,6 @@
 import { supabaseAdmin as supabase } from "../config/supabase.js";
 import * as aiService from "../services/aiService.js";
+import { getCustomerMemoryData, updateCustomerMemory } from "./customerMemoryService.js";
 
 /**
  * Ported from customers-module (CommonJS → ESM), adapted to the existing
@@ -86,7 +87,7 @@ export async function listCustomers(shopkeeperId, { search, filter, page = 1, li
 export async function getCustomerProfile(shopkeeperId, customerId) {
   const { data, error } = await supabase
     .from("customers")
-    .select(`${LIST_SELECT}, orders ( id, final_amount, created_at, order_status )`)
+    .select(`${LIST_SELECT}, orders ( id, final_amount, created_at, order_status, updated_at, order_items ( quantity, unit_price, inventory ( item_name ) ) )`)
     .eq("shopkeeper_id", shopkeeperId)
     .eq("id", customerId)
     .eq("is_active", true);
@@ -118,19 +119,12 @@ export async function getCustomerProfile(shopkeeperId, customerId) {
   // Generate AI-powered timeline
   const timeline = aiService.generateCustomerTimeline(ordersList);
 
-  // Generate AI-powered memory and insights
-  const customerData = {
-    name: customerObj.name,
-    totalOrders,
-    totalSpending,
-    lastPurchaseDate: lastPurchaseDate ? new Date(lastPurchaseDate).toLocaleDateString() : null,
-    currentBalance: Number(customerObj.current_balance || 0),
-  };
-
-  const [aiMemory, aiInsights] = await Promise.all([
-    aiService.generateCustomerMemory(customerData),
-    aiService.generateCustomerInsights(customerData),
-  ]);
+  // Get memory from backend file
+  let aiMemoryObject = getCustomerMemoryData(shopkeeperId, customerId);
+  if (!aiMemoryObject) {
+    await updateCustomerMemory(shopkeeperId, customerId);
+    aiMemoryObject = getCustomerMemoryData(shopkeeperId, customerId);
+  }
 
   const { orders, ...rest } = customerObj;
 
@@ -139,8 +133,7 @@ export async function getCustomerProfile(shopkeeperId, customerId) {
     total_orders: totalOrders,
     total_spending: totalSpending,
     last_purchase_date: lastPurchaseDate,
-    ai_memory: aiMemory,
-    ai_insights: aiInsights,
+    ai_memory: aiMemoryObject, // Object of 16 keys containing business insights
     timeline
   };
 }

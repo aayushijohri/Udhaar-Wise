@@ -18,13 +18,9 @@ export interface Customer {
   color: string;
   tags: string[];
   aiMemory: string; // AI-generated memory summary
-  aiInsights: {
-    paymentBehaviour: string;
-    favouriteProducts: string;
-    riskLevel: string;
-    suggestedFollowUp: string;
-  } | null;
+  aiInsights: Record<string, string> | null;
   timeline: { date: string; title: string; amount: string; status: string }[];
+  currentBalance: number; // Negative = customer owes money
   suggestions?: Array<{
     icon: any;
     color: string;
@@ -69,6 +65,7 @@ function mapBackendCustomer(raw: Record<string, unknown>, index: number): Custom
     tags: Array.isArray(raw.tags) ? (raw.tags as string[]) : (raw.tag ? [String(raw.tag)] : []),
     aiMemory: typeof raw.ai_memory === "string" ? raw.ai_memory : "",
     aiInsights: raw.ai_insights as Customer["aiInsights"] || null,
+    currentBalance: Number(raw.current_balance ?? 0),
     timeline: Array.isArray(raw.timeline)
       ? (raw.timeline as Customer["timeline"])
       : [],

@@ -3,7 +3,8 @@ import path from 'path';
 import logger from '../utils/logger.js';
 
 // Load environment variables from .env file
-dotenv.config();
+// override:true ensures .env values always win over stale system environment variables
+dotenv.config({ override: true });
 
 const requiredEnvVars = [
   'SUPABASE_URL',

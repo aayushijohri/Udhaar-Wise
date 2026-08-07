@@ -1,4 +1,5 @@
 import * as customersService from "../services/customersService.js";
+import * as aiService from "../services/aiService.js";
 import { ok, fail } from "../utils/apiResponse.js";
 
 export async function listCustomers(req, res) {
@@ -56,3 +57,16 @@ export async function deleteCustomer(req, res) {
     return fail(res, error.message, error.status || 400);
   }
 }
+
+export async function generatePromoController(req, res) {
+  try {
+    const customer = await customersService.getCustomerProfile(req.user.id, req.params.id);
+    const message = await aiService.generatePersonalizedPromo(customer.name, customer.ai_memory);
+    return ok(res, { message }, "Promo generated successfully");
+  } catch (error) {
+    console.error("generatePromoController Error:", error);
+    return fail(res, error.message, error.status || 500);
+  }
+}
+
+

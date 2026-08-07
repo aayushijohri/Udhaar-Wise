@@ -1,12 +1,21 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { api } from "@/lib/apiClient";
 
+export type ProductionPrompt = {
+  orderId: string;
+  item_name: string;
+  required: number;
+  available: number;
+  need: number;
+};
+
 export type Order = {
   id: string;
+  order_number: string;
   customer: string;
   phone: string;
   items: string;
-  amount: number;
+  amount: number | null;
   paid: number;
   mode: string;
   src: "voice" | "text" | "image";
@@ -34,10 +43,18 @@ function mapBackendOrder(raw: Record<string, unknown>): Order {
 
   return {
     id: String(raw.id ?? raw._id ?? ""),
+    order_number: String(raw.order_number ?? ""),
     customer: String(raw.customer_name ?? raw.customer ?? ""),
     phone: String(raw.phone ?? raw.customer_phone ?? ""),
     items: String(raw.items ?? raw.item_description ?? raw.items_summary ?? ""),
-    amount: Number(raw.total_amount ?? raw.amount ?? 0),
+    // Use final_amount (the computed amount after discounts/tax) — backend stores it as null for unpriced orders
+    amount: raw.final_amount != null
+      ? Number(raw.final_amount)
+      : raw.total_amount != null
+      ? Number(raw.total_amount)
+      : raw.amount != null
+      ? Number(raw.amount)
+      : null,
     paid: Number(raw.paid_amount ?? raw.paid ?? 0),
     mode: String(raw.payment_mode ?? raw.mode ?? "—"),
     src,
@@ -50,6 +67,7 @@ export function useOrders(onInventoryRefresh?: () => void, onDashboardRefresh?: 
   const [searchQuery, setSearchQuery] = useState("");
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [productionPrompt, setProductionPrompt] = useState<ProductionPrompt | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const fetchOrders = useCallback(async (isInitial = false) => {
@@ -75,7 +93,7 @@ export function useOrders(onInventoryRefresh?: () => void, onDashboardRefresh?: 
 
   useEffect(() => {
     fetchOrders(true);
-    const interval = setInterval(() => fetchOrders(false), 5000);
+    const interval = setInterval(() => fetchOrders(false), 30000);
     return () => clearInterval(interval);
   }, [fetchOrders]);
 
@@ -87,16 +105,40 @@ export function useOrders(onInventoryRefresh?: () => void, onDashboardRefresh?: 
     }
   }, []);
 
-  const acceptOrder = useCallback(async (orderId: string) => {
+  const acceptOrder = useCallback(async (orderId: string, produce = false) => {
+    const url = produce
+      ? `/api/orders/${orderId}/accept?produce=true`
+      : `/api/orders/${orderId}/accept`;
     try {
-      await api.post(`/api/orders/${orderId}/accept`, {});
+      await api.post(url, {});
+      setProductionPrompt(null);
       await fetchOrders();
       if (onInventoryRefresh) onInventoryRefresh();
       if (onDashboardRefresh) onDashboardRefresh();
-    } catch {
-      // silently ignore; toast can be added later
+    } catch (err: unknown) {
+      // Check for INSUFFICIENT_FINISHED_STOCK
+      const raw = err as { code?: string; details?: { item_name: string; required: number; available: number; need: number } };
+      if (raw?.code === "INSUFFICIENT_FINISHED_STOCK" && raw.details) {
+        setProductionPrompt({
+          orderId,
+          item_name: raw.details.item_name,
+          required: raw.details.required,
+          available: raw.details.available,
+          need: raw.details.need,
+        });
+      }
+      // else silently ignore; could add toast here
     }
   }, [fetchOrders, onInventoryRefresh, onDashboardRefresh]);
+
+  const confirmProduction = useCallback(async () => {
+    if (!productionPrompt) return;
+    await acceptOrder(productionPrompt.orderId, true);
+  }, [productionPrompt, acceptOrder]);
+
+  const dismissProduction = useCallback(() => {
+    setProductionPrompt(null);
+  }, []);
 
   const rejectOrder = useCallback(async (orderId: string) => {
     try {
@@ -117,6 +159,20 @@ export function useOrders(onInventoryRefresh?: () => void, onDashboardRefresh?: 
       // silently ignore; toast can be added later
     }
   }, [fetchOrders, onDashboardRefresh]);
+
+  const createOrder = useCallback(async (payload: Record<string, unknown>) => {
+    try {
+      const res = await api.post<{ order?: Record<string, unknown> }>('/api/orders', payload);
+      if (res.success) {
+        await fetchOrders();
+        if (onInventoryRefresh) onInventoryRefresh();
+        if (onDashboardRefresh) onDashboardRefresh();
+      }
+      return res;
+    } catch (err) {
+      throw err;
+    }
+  }, [fetchOrders, onInventoryRefresh, onDashboardRefresh]);
 
   const filteredOrders = useMemo(() => {
     return orders.filter((o) => {
@@ -152,9 +208,13 @@ export function useOrders(onInventoryRefresh?: () => void, onDashboardRefresh?: 
     loading,
     error,
     refetch: fetchOrders,
+    createOrder,
     sendReminder,
     acceptOrder,
     rejectOrder,
     completeOrder,
+    productionPrompt,
+    confirmProduction,
+    dismissProduction,
   };
 }

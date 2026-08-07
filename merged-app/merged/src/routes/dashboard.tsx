@@ -11,9 +11,17 @@ import {
   FileText,
   ArrowUpRight,
   Package,
+  ShieldCheck,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 import { useDashboard } from "@/hooks/use-dashboard";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePaymentClaims } from "@/hooks/use-payment-claims";
+import { useCustomers } from "@/hooks/use-customers";
+import { useInventory } from "@/hooks/use-inventory";
+import { exportCreditPassportPDF } from "@/lib/creditPassport";
+
 
 const TINT_STYLES: Record<string, { iconBg: string; text: string; trendBg: string }> = {
   emerald: { iconBg: "bg-emerald-100", text: "text-emerald-700", trendBg: "bg-emerald-50" },
@@ -35,7 +43,11 @@ function formatCurrency(value: number | undefined): string {
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const { overview, activities, lowStock, loading } = useDashboard();
+  const { overview, activities, lowStock, loading, refetch: refetchDashboard } = useDashboard();
+  const { claims, approveClaim, rejectClaim } = usePaymentClaims(refetchDashboard);
+  const { customers } = useCustomers();
+  const { items: inventory } = useInventory();
+
 
   const metrics = [
     {
@@ -113,9 +125,13 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
-          <button className="btn-glow-indigo inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold">
+          <button
+            onClick={() => exportCreditPassportPDF({ overview, customers, inventory })}
+            className="btn-glow-indigo inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold"
+          >
             <FileText className="h-4 w-4" /> Export 1-Click Credit Passport (PDF)
           </button>
+
         </div>
       </section>
 
@@ -147,6 +163,92 @@ export default function DashboardPage() {
           );
         })}
       </section>
+
+      {/* Payment Claims Verification */}
+      {claims.length > 0 && (
+        <section className="mb-6">
+          <div className="glass-card rounded-3xl p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-white">
+                  <ShieldCheck className="h-5 w-5" />
+                </div>
+                <div>
+                  <h2 className="text-base font-extrabold text-slate-900">Payment Verification</h2>
+                  <p className="text-xs text-slate-500">Customers claim these payments — approve or reject</p>
+                </div>
+              </div>
+              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-amber-500 text-[11px] font-bold text-white">
+                {claims.length}
+              </span>
+            </div>
+            <ul className="divide-y divide-slate-100">
+              {claims.map((claim) => (
+                <li key={claim.id} className="py-4 border-b border-slate-100 last:border-0">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-extrabold text-slate-900">{claim.customers?.name}</span>
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-100">
+                          AI Confidence: High
+                        </span>
+                      </div>
+                      <div className="mt-0.5 text-xs text-slate-500">
+                        {claim.customers?.phone_number} &middot; via <span className="uppercase font-semibold">{claim.payment_mode}</span> &middot; {new Date(claim.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                      {claim.raw_message && (
+                        <div className="mt-1.5 rounded-lg bg-slate-50 px-3 py-1.5 text-xs italic text-slate-500 border border-slate-100/60 inline-block font-mono">
+                          &ldquo;{claim.raw_message}&rdquo;
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg font-black text-slate-900 mr-2">&#8377;{Number(claim.amount).toLocaleString('en-IN')}</span>
+                      <button
+                        onClick={() => approveClaim(claim.id)}
+                        className="inline-flex items-center gap-1 rounded-full bg-emerald-500 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-emerald-600 shadow-sm transition"
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5" /> Approve
+                      </button>
+                      <button
+                        onClick={() => rejectClaim(claim.id)}
+                        className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-3.5 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-200 transition"
+                      >
+                        <XCircle className="h-3.5 w-3.5" /> Reject
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {/* Candidate allocation preview */}
+                  {claim.candidate_orders && claim.candidate_orders.length > 0 ? (
+                    <div className="mt-3 bg-slate-50/70 rounded-2xl p-3 border border-slate-100">
+                      <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block mb-2">FIFO Order Allocation Plan</span>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {claim.candidate_orders.map((ord) => (
+                          <div key={ord.order_id} className="bg-white rounded-xl p-2.5 border border-slate-100 flex items-center justify-between text-xs">
+                            <div className="min-w-0 flex-1 pr-2">
+                              <div className="font-bold text-slate-800">{ord.order_number}</div>
+                              <div className="text-[10px] text-slate-500 truncate">{ord.items_summary}</div>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <div className="font-extrabold text-slate-700">₹{Number(ord.total_amount).toLocaleString('en-IN')}</div>
+                              <div className="text-[10px] text-emerald-600 font-bold">Owed: ₹{Number(ord.remaining).toLocaleString('en-IN')}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-3 text-[11px] text-amber-700 bg-amber-50 border border-amber-100/60 rounded-xl px-3 py-2 font-medium">
+                      No unpaid orders found. ₹{Number(claim.amount).toLocaleString('en-IN')} will be added as advance balance to customer credit.
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+      )}
 
       {/* Main grid */}
       <section className="grid gap-8 xl:grid-cols-[1.6fr_1fr]">

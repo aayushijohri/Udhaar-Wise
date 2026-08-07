@@ -1,4 +1,7 @@
 import { supabaseAdmin as supabase } from "../config/supabase.js";
+import { updateCustomerMemory } from "./customerMemoryService.js";
+import whatsappService from "./whatsappService.js";
+import * as aiService from "./aiService.js";
 
 /**
  * Ported from orders-module/src/services/orders.service.js (CommonJS → ESM).
@@ -30,14 +33,33 @@ export function parseNotesMetadata(notesField) {
     source: "manual_entry",
     input_type: "text",
     cleanNotes: notesField || "",
+    customer_name: null,
+    customer_phone: null,
+    extras: {},
   };
 
   if (notesField && notesField.startsWith("[source:")) {
-    const match = notesField.match(/^\[source:([^\]]+)\]\[input:([^\]]+)\](.*)$/);
+    const match = notesField.match(/^\[source:([^\]]+)\]\[input:([^\]]+)\](.*)$/s);
     if (match) {
       metadata.source = match[1];
       metadata.input_type = match[2];
-      metadata.cleanNotes = match[3].trim();
+      let rest = (match[3] || "").trim();
+      const extraMetaRegex = /^\[([^\]]+):([^\]]+)\](.*)$/s;
+      let extraMatch;
+      // Collect bracketed key:value pairs into extras, but extract known keys
+      while (rest && (extraMatch = rest.match(extraMetaRegex))) {
+        const key = extraMatch[1];
+        const value = extraMatch[2];
+        rest = (extraMatch[3] || "").trim();
+        if (key === "customer") {
+          metadata.customer_name = value;
+        } else if (key === "phone") {
+          metadata.customer_phone = value;
+        } else {
+          metadata.extras[key] = value;
+        }
+      }
+      metadata.cleanNotes = rest.trim();
     }
   }
 
@@ -60,11 +82,18 @@ function formatOrder(order) {
 
   if (order.customers) {
     order.customer_name = order.customers.name;
-    order.customer_phone = order.customers.phone_number;
+    order.customer_phone = order.customers.phone_number || meta.customer_phone || "";
+  } else if (meta.customer_name) {
+    order.customer_name = meta.customer_name;
+    order.customer_phone = meta.customer_phone || "";
   } else {
     order.customer_name = "Walk-in Customer";
     order.customer_phone = "";
   }
+
+  // Expose parsed metadata (intent/transcript/other extras) to the API consumer
+  order.parsed_intent = meta.extras.intent || null;
+  order.transcript = meta.extras.transcript || null;
 
   if (Array.isArray(order.order_items)) {
     order.order_items = order.order_items.map((item) => ({
@@ -161,7 +190,6 @@ async function deductStockForItems(insertedItems) {
     }
 
     const newQuantity = Math.max(inv.quantity_in_stock - item.quantity, 0);
-
     await supabase.from("inventory").update({ quantity_in_stock: newQuantity }).eq("id", inv.id);
 
     if (inv.min_stock_threshold !== null && newQuantity <= inv.min_stock_threshold) {
@@ -286,7 +314,62 @@ export async function createOrder(shopkeeperId, userId, payload) {
     throw err;
   }
 
-  const itemsWithTotals = computeItemTotals(payload.items);
+  // Detailed logging for debugging pipeline stages
+  try {
+    console.log('[ORDERSERVICE][STAGE1] Raw incoming payload to createOrder:', JSON.stringify(payload));
+  } catch (e) {
+    console.log('[ORDERSERVICE] Failed to stringify payload for log');
+  }
+
+  // Coerce item quantities (supports spelled-out numbers one->ten)
+  const wordToNumber = {
+    one: 1,
+    two: 2,
+    three: 3,
+    four: 4,
+    five: 5,
+    six: 6,
+    seven: 7,
+    eight: 8,
+    nine: 9,
+    ten: 10,
+    aadha: 0.5,
+    half: 0.5,
+    ek: 1,
+    do: 2,
+    teen: 3,
+  };
+
+  function parseQuantity(q) {
+    if (q === undefined || q === null) return null;
+    if (typeof q === 'number') return q;
+    const s = String(q).trim().toLowerCase();
+    if (s === '') return null;
+    if (!Number.isNaN(Number(s))) return Number(s);
+    // strip non-alpha
+    const alpha = s.replace(/[^a-z]/g, '');
+    if (alpha && wordToNumber[alpha] !== undefined) return wordToNumber[alpha];
+    const parsedInt = Number.parseInt(s, 10);
+    return Number.isNaN(parsedInt) ? null : parsedInt;
+  }
+
+  const normalizedItems = (payload.items || []).map((it) => ({
+    ...it,
+    quantity: parseQuantity(it.quantity),
+    item_name: it.item_name || it.item || it.product || "",
+  }));
+  // If any item is missing required fields, abort rather than silently defaulting
+  const incomplete = normalizedItems.find((it) => !it.item_name || it.quantity === null || it.quantity === undefined);
+  if (incomplete) {
+    const err = new Error('Parsed items incomplete: each item must include name and quantity');
+    err.status = 400;
+    throw err;
+  }
+  try {
+    console.log('[ORDERSERVICE][STAGE1.5] Normalized items:', JSON.stringify(normalizedItems));
+  } catch (e) {}
+
+  const itemsWithTotals = computeItemTotals(normalizedItems);
   const computedTotal = sumTotal(itemsWithTotals);
   const explicitAmount = payload.final_amount ?? payload.total_amount;
   const totalAmount =
@@ -302,26 +385,104 @@ export async function createOrder(shopkeeperId, userId, payload) {
   const source = payload.source || "manual_entry";
   const inputType = payload.input_type || "text";
   const rawNotes = payload.notes || null;
-  const encodedNotes = rawNotes !== null
-    ? `[source:${source}][input:${inputType}] ${rawNotes}`
-    : `[source:${source}][input:${inputType}]`;
+  const encodedNotesParts = [`[source:${source}]`, `[input:${inputType}]`];
+  if (payload.customer_name) {
+    encodedNotesParts.push(`[customer:${String(payload.customer_name).trim()}]`);
+  }
+  if (payload.customer_phone) {
+    encodedNotesParts.push(`[phone:${String(payload.customer_phone).trim()}]`);
+  }
+  if (rawNotes !== null && rawNotes !== undefined && String(rawNotes).trim() !== "") {
+    encodedNotesParts.push(String(rawNotes).trim());
+  }
+  const encodedNotes = encodedNotesParts.join(" ");
+
+  const insertPayload = {
+    shopkeeper_id: shopkeeperId,
+    customer_id: payload.customer_id || null,
+    total_amount: totalAmount,
+    discount_amount: payload.discount_amount || 0,
+    tax_amount: payload.tax_amount || 0,
+    final_amount: totalAmount - (payload.discount_amount || 0) + (payload.tax_amount || 0),
+    paid_amount: payload.paid_amount || 0,
+    payment_status: payload.payment_status || "unpaid",
+    order_status: "pending",
+    notes: encodedNotes,
+  };
+
+  // If caller provided a customer_name but no customer_id, try to resolve or create a customer.
+  // If frontend supplied a generic name (e.g. from voice UI), attempt to extract a real name from transcript via AI
+  if (payload.customer_name && /voice customer|voice|customer$/i.test(String(payload.customer_name).trim()) && payload.transcript) {
+    try {
+      const parsedFromTranscript = await aiService.parseOrder(String(payload.transcript));
+      if (parsedFromTranscript && parsedFromTranscript.customer_name) {
+        payload.customer_name = parsedFromTranscript.customer_name;
+      }
+    } catch (e) {
+      // ignore AI failures — proceed with original name
+      console.warn('[ordersService] AI fallback name extraction failed:', e.message);
+    }
+  }
+
+  if ((!insertPayload.customer_id || insertPayload.customer_id === null) && payload.customer_name) {
+    try {
+      let name = String(payload.customer_name).trim();
+      // Do not create customers for placeholder/generic names coming from UI
+      if (/^(voice customer|walk-?in customer|customer|unknown)$/i.test(name)) {
+        name = null;
+      }
+      if (!name) {
+        // Skip resolution/creation for placeholder names
+      } else {
+        // Try exact (case-insensitive) match
+        const { data: existing } = await supabase
+          .from('customers')
+          .select('id, name, phone_number')
+          .eq('shopkeeper_id', shopkeeperId)
+          .ilike('name', name)
+          .maybeSingle();
+        if (existing && existing.id) {
+          insertPayload.customer_id = existing.id;
+        } else {
+          // Try contains match
+          const { data: candidates } = await supabase
+            .from('customers')
+            .select('id, name, phone_number')
+            .eq('shopkeeper_id', shopkeeperId)
+            .ilike('name', `%${name}%`);
+          if (candidates && candidates.length === 1) {
+            insertPayload.customer_id = candidates[0].id;
+          } else if (!candidates || candidates.length === 0) {
+            // Create a new customer record with provided name (phone optional)
+            const createPayload = { shopkeeper_id: shopkeeperId, name };
+            if (payload.customer_phone) createPayload.phone_number = String(payload.customer_phone).trim();
+            try {
+              const { data: created, error: createErr } = await supabase
+                .from('customers')
+                .insert([createPayload])
+                .select('id')
+                .single();
+              if (!createErr && created && created.id) insertPayload.customer_id = created.id;
+            } catch (ce) {
+              // ignore create errors — leave customer_id null
+              console.warn('[ordersService] create customer failed:', ce.message);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[ordersService] customer resolution error:', e.message);
+    }
+  }
+
+  try {
+    console.log('[ORDERSERVICE][STAGE3] Insert payload:', JSON.stringify(insertPayload));
+    console.log('[ORDERSERVICE][STAGE3] Items to insert (pre-match):', JSON.stringify(itemsWithTotals));
+  } catch (e) {}
 
   const { data: order, error: orderError } = await supabase
     .from("orders")
-    .insert([
-      {
-        shopkeeper_id: shopkeeperId,
-        customer_id: payload.customer_id || null,
-        total_amount: totalAmount,
-        discount_amount: payload.discount_amount || 0,
-        tax_amount: payload.tax_amount || 0,
-        final_amount: totalAmount - (payload.discount_amount || 0) + (payload.tax_amount || 0),
-        paid_amount: payload.paid_amount || 0,
-        payment_status: payload.payment_status || "unpaid",
-        order_status: "pending",
-        notes: encodedNotes,
-      },
-    ])
+    .insert([insertPayload])
     .select()
     .single();
 
@@ -330,6 +491,10 @@ export async function createOrder(shopkeeperId, userId, payload) {
     err.status = 500;
     throw err;
   }
+
+  try {
+    console.log('[ORDERSERVICE][STAGE4] Inserted order row:', JSON.stringify(order));
+  } catch (e) {}
 
   const matchedItems = await matchInventoryItems(shopkeeperId, itemsWithTotals);
 
@@ -354,8 +519,52 @@ export async function createOrder(shopkeeperId, userId, payload) {
     throw err;
   }
 
+  try {
+    console.log('[ORDERSERVICE][STAGE4] Inserted order_items rows:', JSON.stringify(insertedItems));
+  } catch (e) {}
+
+  // If caller indicated this is an owner-initiated voice/order, auto-accept the order
+  if (payload.owner_initiated === true || payload.owner_voice === true) {
+    try {
+      const accepted = await acceptOrder(shopkeeperId, order.id, true);
+      try { console.log('[ORDERSERVICE][STAGE5] Auto-accepted owner order:', JSON.stringify(accepted)); } catch (e) {}
+      return accepted;
+    } catch (accErr) {
+      console.warn('[ORDERSERVICE] Auto-accept failed:', accErr.message);
+      // fall through and return the created order row if accept failed
+    }
+  }
+
   // Do NOT deduct stock on order creation. Stock deduction happens on order acceptance.
   // await deductStockForItems(insertedItems);
+
+  const orderLabel = `ORD-${order.id.slice(0, 8).toUpperCase()}`;
+  const statusLabel = (insertPayload.order_status || "pending").replace(/^./, (c) => c.toUpperCase());
+  const itemLines = (payload.items || []).map((item) => `• ${item.item_name || item.product || "Item"} ×${item.quantity || 1}`).join("\n");
+  const totalText = `₹${Number(totalAmount || 0).toLocaleString("en-IN")}`;
+
+  let customerPhone = null;
+  if (payload.customer_phone) {
+    customerPhone = String(payload.customer_phone).trim();
+  } else if (payload.customer_id) {
+    const { data: customer } = await supabase
+      .from("customers")
+      .select("phone_number")
+      .eq("id", payload.customer_id)
+      .maybeSingle();
+    customerPhone = customer?.phone_number || null;
+  }
+
+  if (customerPhone) {
+    try {
+      await whatsappService.sendTextMessage(
+        customerPhone,
+        `✅ *Order confirmed*\n\nOrder ID: *${orderLabel}*\nCustomer: *${payload.customer_name || "Customer"}*\n\nItems:\n${itemLines || "• Item"}\n\nTotal: *${totalText}*\nStatus: *${statusLabel}*`
+      );
+    } catch (sendErr) {
+      console.warn("[Orders] Confirmation WhatsApp failed:", sendErr.message);
+    }
+  }
 
   return getOrderById(shopkeeperId, order.id);
 }
@@ -378,8 +587,15 @@ export async function updateOrder(shopkeeperId, orderId, payload) {
   });
 
   const isNewlyCancelled = payload.order_status === "cancelled" && existing.order_status !== "cancelled";
-  if (payload.order_status === "cancelled") {
-    updateData.cancelled_at = new Date().toISOString();
+  const isTransitioningFromAcceptedToCancelled = 
+    (payload.order_status === "cancelled" || payload.order_status === "rejected") && 
+    existing.order_status === "accepted";
+
+  // Only attempt to write cancellation columns if we are actually cancelling
+  // (these columns may not exist in all schema versions)
+  if (isNewlyCancelled) {
+    // Attempt gracefully — if columns don't exist, Supabase will ignore unknown
+    // fields in the patch (it returns an error, but we isolate it below)
     updateData.cancellation_reason = payload.cancellation_reason || null;
   }
 
@@ -390,7 +606,9 @@ export async function updateOrder(shopkeeperId, orderId, payload) {
     updateData.final_amount =
       newTotal - (payload.discount_amount ?? existing.discount_amount) + (payload.tax_amount ?? existing.tax_amount);
 
-    await restockItems(existing.order_items);
+    if (existing.order_status === "accepted") {
+      await restockItems(existing.order_items);
+    }
 
     const { error: deleteError } = await supabase.from("order_items").delete().eq("order_id", orderId);
     if (deleteError) {
@@ -418,8 +636,10 @@ export async function updateOrder(shopkeeperId, orderId, payload) {
       throw err;
     }
 
-    await deductStockForItems(newItems);
-  } else if (isNewlyCancelled) {
+    if (existing.order_status === "accepted") {
+      await deductStockForItems(newItems);
+    }
+  } else if (isTransitioningFromAcceptedToCancelled) {
     await restockItems(existing.order_items);
   }
 
@@ -443,13 +663,94 @@ export async function updateOrder(shopkeeperId, orderId, payload) {
 // =========================================================
 // ACCEPT ORDER
 // =========================================================
-export async function acceptOrder(shopkeeperId, orderId) {
+export async function acceptOrder(shopkeeperId, orderId, triggerProduction = false) {
   const existing = await getOrderById(shopkeeperId, orderId);
 
   if (existing.order_status !== "pending") {
     const err = new Error("Order can only be accepted when in pending status");
     err.status = 409;
     throw err;
+  }
+
+  // Check finished stock for all items
+  const insufficientItems = [];
+  for (const item of existing.order_items || []) {
+    if (!item.inventory_id) continue;
+    const { data: inv } = await supabase
+      .from("inventory")
+      .select("id, item_name, quantity_in_stock, description")
+      .eq("id", item.inventory_id)
+      .maybeSingle();
+
+    if (inv && inv.quantity_in_stock < item.quantity) {
+      insufficientItems.push({
+        inventory_id: inv.id,
+        item_name: inv.item_name,
+        available: inv.quantity_in_stock,
+        required: item.quantity,
+        need: item.quantity - inv.quantity_in_stock,
+        description: inv.description
+      });
+    }
+  }
+
+  if (insufficientItems.length > 0 && !triggerProduction) {
+    // Return custom error so frontend knows to show popup
+    const first = insufficientItems[0];
+    const err = new Error(`Only ${first.available} finished ${first.item_name}(s) available. Produce remaining ${first.need}?`);
+    err.status = 400;
+    err.code = "INSUFFICIENT_FINISHED_STOCK";
+    err.details = {
+      item_name: first.item_name,
+      required: first.required,
+      available: first.available,
+      need: first.need
+    };
+    throw err;
+  }
+
+  // If triggerProduction, consume ingredients to create the needed finished stock
+  if (triggerProduction && insufficientItems.length > 0) {
+    for (const item of insufficientItems) {
+      if (item.description) {
+        try {
+          const descData = JSON.parse(item.description);
+          const bom = descData?.bom || descData?.recipe;
+          if (bom && typeof bom === "object") {
+            // Deduct raw materials/ingredients for the need quantity
+            for (const [rawId, qtyPerUnit] of Object.entries(bom)) {
+              const { data: rawInv } = await supabase
+                .from("inventory")
+                .select("id, quantity_in_stock, item_name")
+                .eq("id", rawId)
+                .maybeSingle();
+              if (rawInv) {
+                const totalNeeded = Number(qtyPerUnit) * item.need;
+                const newQty = Math.max(0, rawInv.quantity_in_stock - totalNeeded);
+                await supabase
+                  .from("inventory")
+                  .update({ quantity_in_stock: newQty })
+                  .eq("id", rawInv.id);
+              }
+            }
+          }
+        } catch (e) {
+          console.error("[Production] BOM parsing err:", e.message);
+        }
+      }
+      
+      // Update finished stock of product: add the produced quantity
+      const { data: currentProd } = await supabase
+        .from("inventory")
+        .select("quantity_in_stock")
+        .eq("id", item.inventory_id)
+        .single();
+      const updatedStock = (currentProd?.quantity_in_stock || 0) + item.need;
+      await supabase
+        .from("inventory")
+        .update({ quantity_in_stock: updatedStock })
+        .eq("id", item.inventory_id);
+    }
   }
 
   // Update order status to accepted
@@ -467,9 +768,34 @@ export async function acceptOrder(shopkeeperId, orderId) {
     throw err;
   }
 
-  // Deduct inventory stock for items that have inventory_id
+  // Deduct Finished Stock only
   if (Array.isArray(existing.order_items)) {
     await deductStockForItems(existing.order_items);
+  }
+
+  // Record credit ledger entry — triggers fn_update_customer_balance
+  if (updated.customer_id) {
+    const finalAmt = Number(updated.final_amount || 0);
+    const paidAmt = Number(updated.paid_amount || 0);
+    const creditAmt = finalAmt - paidAmt;
+    if (creditAmt > 0) {
+      try {
+        const { error: txErr } = await supabase.from("transactions").insert([{
+          shopkeeper_id: shopkeeperId,
+          customer_id: updated.customer_id,
+          order_id: updated.id,
+          type: "credit",
+          amount: creditAmt,
+          payment_method: "adjustment",
+          description: `Order ORD-${updated.id.slice(0, 8).toUpperCase()} accepted — ₹${creditAmt} on credit`
+        }]);
+        if (txErr) {
+          console.error("[Ledger] Credit insert failed:", txErr.message);
+        }
+      } catch (e) {
+        console.error("[Ledger] Credit insert failed:", e.message);
+      }
+    }
   }
 
   return getOrderById(shopkeeperId, updated.id);
@@ -481,8 +807,8 @@ export async function acceptOrder(shopkeeperId, orderId) {
 export async function rejectOrder(shopkeeperId, orderId) {
   const existing = await getOrderById(shopkeeperId, orderId);
 
-  if (existing.order_status !== "pending") {
-    const err = new Error("Order can only be rejected when in pending status");
+  if (existing.order_status !== "pending" && existing.order_status !== "accepted") {
+    const err = new Error("Order can only be rejected from pending or accepted status");
     err.status = 409;
     throw err;
   }
@@ -500,6 +826,10 @@ export async function rejectOrder(shopkeeperId, orderId) {
     const err = new Error("Failed to reject order: " + updateError.message);
     err.status = 500;
     throw err;
+  }
+
+  if (existing.order_status === "accepted" && Array.isArray(existing.order_items)) {
+    await restockItems(existing.order_items);
   }
 
   return getOrderById(shopkeeperId, updated.id);
@@ -530,6 +860,12 @@ export async function completeOrder(shopkeeperId, orderId) {
     const err = new Error("Failed to complete order: " + updateError.message);
     err.status = 500;
     throw err;
+  }
+
+  if (updated && updated.customer_id) {
+    updateCustomerMemory(shopkeeperId, updated.customer_id).catch((e) =>
+      console.error("[Memory] Update background error:", e)
+    );
   }
 
   return getOrderById(shopkeeperId, updated.id);

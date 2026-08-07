@@ -57,7 +57,10 @@ async function request<T = unknown>(
   const json = await response.json().catch(() => ({ success: false, message: "Invalid JSON response" }));
 
   if (!response.ok) {
-    throw new Error(json.message ?? `HTTP ${response.status}`);
+    const err = new Error(json.message ?? `HTTP ${response.status}`) as Error & { code?: string; details?: unknown };
+    err.code = json.code;
+    err.details = json.details;
+    throw err;
   }
 
   return json as ApiResponse<T>;

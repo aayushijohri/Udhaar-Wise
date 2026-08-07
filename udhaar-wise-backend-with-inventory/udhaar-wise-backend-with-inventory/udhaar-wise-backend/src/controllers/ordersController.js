@@ -23,7 +23,9 @@ export async function getOrderById(req, res) {
 
 export async function createOrder(req, res) {
   try {
+    console.log('[API][STAGE3] /orders create called with body:', JSON.stringify(req.body));
     const order = await ordersService.createOrder(req.user.id, req.user.id, req.body);
+    try { console.log('[API][STAGE5] Order returned by service:', JSON.stringify(order)); } catch (e) {}
     return ok(res, { order }, "Order created successfully", 201);
   } catch (error) {
     console.error("Orders createOrder Error:", error);
@@ -63,10 +65,19 @@ export async function sendReminder(req, res) {
 
 export async function acceptOrder(req, res) {
   try {
-    const order = await ordersService.acceptOrder(req.user.id, req.params.id);
+    const triggerProduction = req.query.produce === "true";
+    const order = await ordersService.acceptOrder(req.user.id, req.params.id, triggerProduction);
     return ok(res, { order }, "Order accepted successfully");
   } catch (error) {
     console.error("Orders acceptOrder Error:", error);
+    if (error.code === "INSUFFICIENT_FINISHED_STOCK") {
+      return res.status(400).json({
+        success: false,
+        error: error.message,
+        code: error.code,
+        details: error.details
+      });
+    }
     return fail(res, error.message, error.status || 400);
   }
 }

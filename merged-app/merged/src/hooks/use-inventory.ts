@@ -14,6 +14,8 @@ export interface InventoryItem {
   low: number;
   auto: boolean;
   unit?: string;
+  sku?: string;
+  description?: string;
 }
 
 function mapBackendItem(raw: Record<string, unknown>): InventoryItem {
@@ -25,6 +27,8 @@ function mapBackendItem(raw: Record<string, unknown>): InventoryItem {
     low: Number(raw.min_stock_threshold ?? raw.low_stock_threshold ?? raw.low ?? 0),
     auto: Boolean(raw.auto_deduct ?? raw.auto ?? false),
     unit: raw.unit ? String(raw.unit) : undefined,
+    sku: raw.sku ? String(raw.sku) : undefined,
+    description: raw.description ? String(raw.description) : undefined,
   };
 }
 
@@ -71,6 +75,8 @@ export function useInventory() {
     if (updates.name !== undefined) backendUpdates.item_name = updates.name;
     if (updates.price !== undefined) backendUpdates.unit_price = updates.price;
     if (updates.low !== undefined) backendUpdates.min_stock_threshold = updates.low;
+    if (updates.stock !== undefined) backendUpdates.quantity_in_stock = updates.stock;
+    if (updates.sku !== undefined) backendUpdates.sku = updates.sku;
     await api.patch(`/api/inventory/${id}`, backendUpdates);
     await fetchInventory();
   }, [fetchInventory]);
@@ -82,6 +88,7 @@ export function useInventory() {
       unit_price: payload.price,
       quantity_in_stock: payload.stock,
       min_stock_threshold: payload.low,
+      sku: payload.sku || "product",
     };
     await api.post("/api/inventory", backendPayload);
     await fetchInventory();

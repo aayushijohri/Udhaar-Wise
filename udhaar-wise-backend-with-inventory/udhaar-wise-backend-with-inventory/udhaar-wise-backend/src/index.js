@@ -22,6 +22,8 @@ import premiumRoutes from "./routes/premiumRoutes.js";
 import dashboardRoutes from "./routes/dashboardRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import inventoryRoutes from "./routes/inventoryRoutes.js";
+import paymentClaimsRoutes from "./routes/paymentClaimsRoutes.js";
+import paymentsRoutes from "./routes/paymentsRoutes.js";
 
 
 const app = express();
@@ -109,6 +111,8 @@ app.use("/api/premium", premiumRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/inventory", inventoryRoutes);
+app.use("/api/payment-claims", paymentClaimsRoutes);
+app.use("/api/payments", paymentsRoutes);
 
 
 

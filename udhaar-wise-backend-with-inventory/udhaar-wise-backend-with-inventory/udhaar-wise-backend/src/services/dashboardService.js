@@ -30,23 +30,25 @@ export async function getOverview(shopkeeperId) {
   const [
     { count: totalOrders },
     { count: totalCustomers },
-    { count: lowStock },
+    inventoryRes,
     allOrders,
     thisMonthOrders,
     unpaidOrdersRes,
     customersRes,
+    { count: pendingClaims },
   ] = await Promise.all([
     supabase.from("orders").select("id", { count: "exact", head: true }).eq("shopkeeper_id", shopkeeperId),
     supabase.from("customers").select("id", { count: "exact", head: true }).eq("shopkeeper_id", shopkeeperId),
     supabase
       .from("inventory")
-      .select("id", { count: "exact", head: true })
+      .select("quantity_in_stock, min_stock_threshold")
       .eq("shopkeeper_id", shopkeeperId)
-      .lte("quantity_in_stock", 5),
-    supabase.from("orders").select("final_amount").eq("shopkeeper_id", shopkeeperId),
+      .eq("is_active", true),
+    // Revenue = actual paid amounts (not billed amounts)
+    supabase.from("orders").select("paid_amount").eq("shopkeeper_id", shopkeeperId),
     supabase
       .from("orders")
-      .select("id, final_amount", { count: "exact" })
+      .select("id, paid_amount", { count: "exact" })
       .eq("shopkeeper_id", shopkeeperId)
       .gte("created_at", thisMonthIso),
     supabase
@@ -58,11 +60,18 @@ export async function getOverview(shopkeeperId) {
       .from("customers")
       .select("current_balance")
       .eq("shopkeeper_id", shopkeeperId),
+    supabase
+      .from("payment_claims")
+      .select("id", { count: "exact", head: true })
+      .eq("shopkeeper_id", shopkeeperId)
+      .eq("status", "pending"),
   ]);
 
-  const totalRevenue = (allOrders.data || []).reduce((sum, o) => sum + Number(o.final_amount || 0), 0);
-  const monthlyRevenue = (thisMonthOrders.data || []).reduce((sum, o) => sum + Number(o.final_amount || 0), 0);
+  // Revenue = sum of what was actually paid (not just billed)
+  const totalRevenue = (allOrders.data || []).reduce((sum, o) => sum + Number(o.paid_amount || 0), 0);
+  const monthlyRevenue = (thisMonthOrders.data || []).reduce((sum, o) => sum + Number(o.paid_amount || 0), 0);
   const ordersThisMonth = thisMonthOrders.count || 0;
+  const lowStock = (inventoryRes.data || []).filter((i) => i.quantity_in_stock <= (i.min_stock_threshold ?? 5)).length;
   const unpaidOrders = unpaidOrdersRes.count || 0;
 
   // pending_udhaar = total outstanding negative balance across all customers
@@ -70,29 +79,48 @@ export async function getOverview(shopkeeperId) {
     .filter((c) => Number(c.current_balance) < 0)
     .reduce((sum, c) => sum + Math.abs(Number(c.current_balance)), 0);
 
-  // Simple loan eligibility score: 0–100 based on revenue and repayment behaviour
+  // Multi-factor loan eligibility score: 0–100
   const repaymentRatio = totalOrders ? 1 - unpaidOrders / totalOrders : 1;
-  const loanEligibilityScore = Math.min(100, Math.round(repaymentRatio * 70 + Math.min(totalRevenue / 100000, 30)));
+  const revenueScore = Math.min(25, Math.round((totalRevenue / 200000) * 25));
+  const repaymentScore = Math.round(repaymentRatio * 30);
+  const retentionScore = totalCustomers > 0
+    ? Math.min(20, Math.round(((customersRes.data || []).filter(c => Number(c.current_balance) < 0).length / totalCustomers) * 20))
+    : 0;
+  const growthScore = Math.min(15, Math.round((ordersThisMonth / Math.max(totalOrders / 12, 1)) * 15));
+  const duesPenalty = pendingUdhaar > 50000 ? -10 : pendingUdhaar > 20000 ? -5 : 0;
+  const loanEligibilityScore = Math.max(0, Math.min(100,
+    revenueScore + repaymentScore + retentionScore + growthScore + duesPenalty + 10
+  ));
+
+  const loanScoreBreakdown = [
+    { factor: "Revenue Strength", score: revenueScore, max: 25, description: `₹${Math.round(totalRevenue).toLocaleString("en-IN")} total revenue` },
+    { factor: "Repayment Rate", score: repaymentScore, max: 30, description: `${Math.round(repaymentRatio * 100)}% orders paid on time` },
+    { factor: "Customer Retention", score: retentionScore, max: 20, description: `${totalCustomers} active customers` },
+    { factor: "Business Growth", score: growthScore, max: 15, description: `${ordersThisMonth} orders this month` },
+    { factor: "Outstanding Dues", score: Math.abs(duesPenalty), max: 10, description: duesPenalty < 0 ? `₹${Math.round(pendingUdhaar).toLocaleString("en-IN")} pending (penalty)` : "No excessive dues", isPositive: duesPenalty >= 0 },
+  ];
 
   return {
     // Legacy fields (kept for backward compatibility)
     total_orders: totalOrders || 0,
     total_customers: totalCustomers || 0,
     total_revenue: totalRevenue,
-    low_stock_items: lowStock || 0,
+    low_stock_items: lowStock,
     // Fields used by the frontend dashboard cards
     monthly_revenue: monthlyRevenue,
     orders_this_month: ordersThisMonth,
     unpaid_orders: unpaidOrders,
     pending_udhaar: pendingUdhaar,
     loan_eligibility_score: loanEligibilityScore,
+    loan_score_breakdown: loanScoreBreakdown,
+    pending_payment_claims: pendingClaims || 0,
   };
 }
 
 export async function getRevenueAnalytics(shopkeeperId, { days = 30 } = {}) {
   const { data, error } = await supabase
     .from("orders")
-    .select("final_amount, created_at")
+    .select("paid_amount, created_at")
     .eq("shopkeeper_id", shopkeeperId)
     .gte("created_at", daysAgoIso(days))
     .order("created_at", { ascending: true });
@@ -101,8 +129,10 @@ export async function getRevenueAnalytics(shopkeeperId, { days = 30 } = {}) {
 
   const byDay = {};
   for (const order of data || []) {
+    const paid = Number(order.paid_amount || 0);
+    if (paid <= 0) continue; // only count actual payments received
     const day = order.created_at.slice(0, 10);
-    byDay[day] = (byDay[day] || 0) + Number(order.final_amount || 0);
+    byDay[day] = (byDay[day] || 0) + paid;
   }
 
   const series = Object.entries(byDay).map(([date, revenue]) => ({ date, revenue }));
@@ -110,6 +140,7 @@ export async function getRevenueAnalytics(shopkeeperId, { days = 30 } = {}) {
 
   return { period_days: days, total_revenue: total, series };
 }
+
 
 export async function getOrdersAnalytics(shopkeeperId, { days = 30 } = {}) {
   const { data, error } = await supabase

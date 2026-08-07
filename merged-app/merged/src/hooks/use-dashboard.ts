@@ -4,8 +4,16 @@
  * Falls back gracefully to empty data if not authenticated.
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { api } from "@/lib/apiClient";
+
+export interface LoanScoreFactor {
+  factor: string;
+  score: number;
+  max: number;
+  description: string;
+  isPositive?: boolean;
+}
 
 export interface DashboardOverview {
   monthly_revenue?: number;
@@ -13,6 +21,7 @@ export interface DashboardOverview {
   unpaid_orders?: number;
   orders_this_month?: number;
   loan_eligibility_score?: number;
+  loan_score_breakdown?: LoanScoreFactor[];
   [key: string]: unknown;
 }
 
@@ -40,6 +49,8 @@ export function useDashboard() {
   const [lowStock, setLowStock] = useState<LowStockItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Use a ref to track if the component is still mounted / effect is active
+  const cancelledRef = useRef(false);
 
   const load = useCallback(async (isInitial = false) => {
     if (isInitial) setLoading(true);
@@ -50,6 +61,8 @@ export function useDashboard() {
         api.get<RecentActivity[]>("/api/dashboard/recent-activities?limit=4"),
         api.get<LowStockItem[]>("/api/inventory"),
       ]);
+
+      if (cancelledRef.current) return;
 
       if (overviewRes.success && overviewRes.data) {
         setOverview(overviewRes.data);
@@ -72,61 +85,21 @@ export function useDashboard() {
         );
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to load dashboard");
+      if (!cancelledRef.current) {
+        setError(err instanceof Error ? err.message : "Failed to load dashboard");
+      }
     } finally {
-      if (isInitial) setLoading(false);
+      if (!cancelledRef.current && isInitial) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
-
-    async function loadWithCancel(isInitial = false) {
-      if (isInitial) setLoading(true);
-      setError(null);
-      try {
-        const [overviewRes, activitiesRes, inventoryRes] = await Promise.all([
-          api.get<DashboardOverview>("/api/dashboard/overview"),
-          api.get<RecentActivity[]>("/api/dashboard/recent-activities?limit=4"),
-          api.get<LowStockItem[]>("/api/inventory"),
-        ]);
-
-        if (cancelled) return;
-
-        if (overviewRes.success && overviewRes.data) {
-          setOverview(overviewRes.data);
-        }
-        if (activitiesRes.success && activitiesRes.data) {
-          setActivities(Array.isArray(activitiesRes.data) ? activitiesRes.data : []);
-        }
-        if (inventoryRes.success && inventoryRes.data) {
-          const raw = inventoryRes.data as { items?: LowStockItem[] } | LowStockItem[];
-          const items: LowStockItem[] = Array.isArray(raw)
-            ? raw
-            : (raw as { items?: LowStockItem[] }).items ?? [];
-          setLowStock(
-            items.filter(
-              (i) =>
-                typeof i.quantity_in_stock === "number" &&
-                typeof i.min_stock_threshold === "number" &&
-                i.quantity_in_stock <= i.min_stock_threshold
-            )
-          );
-        }
-      } catch (err: unknown) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Failed to load dashboard");
-        }
-      } finally {
-        if (!cancelled && isInitial) setLoading(false);
-      }
-    }
-
-    loadWithCancel(true);
-    const interval = setInterval(() => loadWithCancel(false), 5000);
+    cancelledRef.current = false;
+    load(true);
+    const interval = setInterval(() => load(false), 30000);
 
     return () => {
-      cancelled = true;
+      cancelledRef.current = true;
       clearInterval(interval);
     };
   }, [load]);
