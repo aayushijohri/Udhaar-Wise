@@ -394,11 +394,11 @@ export default function FundingPage() {
     pendingUdhaar != null && pendingUdhaar > 0 ? `Collect pending payments from top customers within 7 days.` : null,
   ].filter(Boolean) as string[];
   const growthList = growthRecommendations.length > 0 ? growthRecommendations.slice(0, 4) : fallbackGrowthRecommendations.slice(0, 4);
-  const creditSummaryFallback = 'Your repayment behaviour, customer retention and transaction consistency indicate moderate financing readiness. Reducing outstanding dues and maintaining regular monthly sales can improve lender confidence.';
+  const creditSummaryFallback = 'Consistent sales and repayments can unlock better funding.';
   const nextActionFallback = pendingUdhaar != null && pendingUdhaar > 0
     ? `Collect outstanding dues of ₹${Math.round(pendingUdhaar)} within 7 days to improve financing readiness.`
     : repeatRate < 50
-      ? `Increase repeat customer engagement through targeted WhatsApp follow-ups.`
+      ? `Collect pending dues`
       : `Maintain consistent collections and inventory flow to support your credit score.`;
 
   function handleDownloadPDF() {
@@ -410,15 +410,11 @@ export default function FundingPage() {
   return (
     <AppShell>
       <div className="mb-6">
-        <span className="rounded-full bg-indigo-100 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-indigo-700">
-          Financial Empowerment
-        </span>
+        
         <h1 className="mt-3 text-3xl font-extrabold text-slate-900 sm:text-4xl">
           Micro-Funding &amp; Financial Empowerment Hub
         </h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Your AI-verified financial identity — built from real business data, ready to unlock capital.
-        </p>
+        
       </div>
 
       {/* Onboarding Notice */}
@@ -427,9 +423,7 @@ export default function FundingPage() {
         <div className="grid gap-4 md:grid-cols-[1fr_auto] items-center">
           <div>
             <h2 className="text-xl font-extrabold text-slate-900">Explore your credit & funding journey</h2>
-            <p className="text-sm text-slate-500">
-              The right funding requires the right story. Switch between your Credit Passport, matched capital options, and growth-ready trust signals.
-            </p>
+            
           </div>
           <div className="flex flex-wrap gap-2">
             {FUNDING_TABS.map((tab) => (
@@ -455,14 +449,17 @@ export default function FundingPage() {
                   <ShieldCheck className="h-5 w-5 text-emerald-600" />
                   <h2 className="text-lg font-extrabold text-slate-900">Credit Passport</h2>
                 </div>
-                <div className="text-sm text-slate-500">Live metrics · updated automatically</div>
+                
               </div>
 
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 <div className="rounded-2xl bg-gradient-to-br from-slate-900 to-emerald-800 p-4 text-white">
                   <div className="text-xs font-bold uppercase">Business Credit Score</div>
                   <div className="mt-2 text-4xl font-black">{score ?? (insightsLoading ? <span className="animate-pulse">—</span> : '—')}</div>
-                  <div className="text-xs mt-1 text-white/70">{insights?.credit_summary ?? overview?.credit_summary ?? ''}</div>
+                  <div className="mt-2 text-sm text-white/80">
+Business Health Score
+</div>
+
                   <div className="mt-3 h-2 rounded-full bg-white/10 overflow-hidden">
                     <div className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-teal-400" style={{ width: `${Math.min(100, Math.max(0, Number(score || 0)))}%` }} />
                   </div>
