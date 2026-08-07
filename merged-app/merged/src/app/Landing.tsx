@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 
+import MagicSandbox from "./components/ui/MagicSandbox";
+
 import { motion, useInView } from "motion/react";
 import {
   MessageCircle, Mic, Camera, Image as ImageIcon, Zap, FileText, Package,
@@ -874,58 +876,6 @@ function TestimonialsSection() {
 
 // ───  ─────────────────────────────────────────────────────────────────────
 
-function Section() {
-  const ref = useRef<HTMLDivElement>(null);
-  const inView = useInView(ref, { once: true, margin: "-80px" });
-
-  return (
-    <section id="" ref={ref} className="py-16 bg-gradient-to-b from-white to-[#f0fdf9]">
-      <div className="max-w-4xl mx-auto px-5 sm:px-8">
-        <motion.div initial="hidden" animate={inView ? "visible" : "hidden"} variants={stagger} className="text-center mb-10">
-          <motion.div variants={fadeUp}>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold mb-4" style={inter}>
-              <Play className="w-3 h-3" /> Live 
-            </span>
-          </motion.div>
-          <motion.h2 variants={fadeUp} className="text-3xl sm:text-4xl font-extrabold text-[#0a1628]" style={jakarta}>
-            See It In Action
-          </motion.h2>
-          <motion.p variants={fadeUp} className="text-gray-500 mt-3 max-w-md mx-auto text-base" style={inter}>
-            Watch how a WhatsApp message becomes a complete business record in under 3 seconds.
-          </motion.p>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={inView ? { opacity: 1, y: 0 } : {}}
-          transition={{ duration: 0.7 }}
-          className="relative rounded-3xl overflow-hidden bg-[#0a1628] aspect-video flex items-center justify-center group cursor-pointer shadow-2xl shadow-emerald-100/50 border border-emerald-100"
-        >
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-900/40 to-teal-900/40" />
-          <div className="absolute inset-0 opacity-20" style={{ backgroundImage: "radial-gradient(circle at 20% 50%, #059669 0%, transparent 50%), radial-gradient(circle at 80% 20%, #0d9488 0%, transparent 50%)" }} />
-
-          <div className="relative flex flex-col items-center gap-4">
-            <div className="w-20 h-20 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center group-hover:scale-110 transition-transform shadow-xl">
-              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-emerald-500 to-teal-400 flex items-center justify-center">
-                <Play className="w-7 h-7 text-white fill-white translate-x-0.5" />
-              </div>
-            </div>
-            <p className="text-white/70 text-sm font-medium" style={inter}>Click to watch 2-minute </p>
-          </div>
-
-          <div className="absolute bottom-6 left-6 flex items-center gap-2">
-            <div className="flex -space-x-1">
-              {["bg-amber-400", "bg-pink-400", "bg-teal-400"].map((c, i) => (
-                <div key={i} className={`w-6 h-6 rounded-full ${c} border-2 border-white/20`} />
-              ))}
-            </div>
-            <span className="text-white/60 text-xs" style={inter}>5,000+ entrepreneurs watched this</span>
-          </div>
-        </motion.div>
-      </div>
-    </section>
-  );
-}
 
 // ─── CTA ──────────────────────────────────────────────────────────────────────
 
@@ -1058,9 +1008,9 @@ export default function App() {
         <SolutionSection />
         <HowItWorksSection />
         <FeaturesSection />
-       
+         <MagicSandbox />
         <TestimonialsSection />
-        <Section />
+        
         <CTASection />
       </main>
       <Footer />
