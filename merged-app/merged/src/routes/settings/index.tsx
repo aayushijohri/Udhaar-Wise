@@ -974,7 +974,7 @@ export default function SettingsPage() {
                         Starting at
                       </p>
                       <p className="text-[40px] font-extrabold text-white leading-none mt-1">
-                        ₹499
+                        ₹99
                       </p>
                       <p className="text-[13px] text-emerald-200 font-medium mt-0.5">/ month</p>
                     </div>

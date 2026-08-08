@@ -82,7 +82,6 @@ const FREE_FEATS = [
 const PREMIUM_FEATS = [
   { text: "Unlimited Voice Intelligence", icon: Mic },
   { text: "Micro Funding Hub", icon: IndianRupee },
-  { text: "Business Network", icon: Network },
   { text: "Smart Inventory Management", icon: Package },
   { text: "Advanced Business Reports", icon: FileText },
 ];
@@ -128,27 +127,6 @@ const FEATURES = [
       { label: "Schemes", val: "200+" },
       { label: "Banks", val: "40+" },
       { label: "Avg. match", val: "12 / mo" },
-    ],
-  },
-  {
-    id: "network",
-    icon: Network,
-    emoji: "🤝",
-    title: "Business Network",
-    tagline: "The right partner, at the right time.",
-    accent: "#6366F1",
-    grad: "linear-gradient(135deg,#6366F1,#8B5CF6)",
-    softBg: "rgba(99,102,241,0.06)",
-    border: "rgba(99,102,241,0.18)",
-    bullets: [
-      "AI-matched suppliers, retailers & transport providers",
-      "Packaging, wholesalers & local service providers",
-      "Smart connections based on your actual requirements",
-    ],
-    stats: [
-      { label: "Businesses", val: "5 000+" },
-      { label: "Categories", val: "30+" },
-      { label: "Avg. match", val: "3 days" },
     ],
   },
   {
@@ -207,12 +185,6 @@ const WHY = [
     title: "Discover Funding",
     desc: "Get matched to government grants and MSME schemes you qualify for.",
     col: "#F59E0B",
-  },
-  {
-    icon: Network,
-    title: "Build Connections",
-    desc: "Partner with suppliers, retailers and service providers that fit your business.",
-    col: "#6366F1",
   },
   {
     icon: Package,
