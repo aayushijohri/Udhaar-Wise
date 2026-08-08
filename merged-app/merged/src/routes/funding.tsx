@@ -15,6 +15,16 @@ import {
   BadgeCheck,
   Briefcase,
   Building2,
+  Star,
+  Clock,
+  X,
+  CheckCircle2,
+  Sparkles,
+  GraduationCap,
+  Globe2,
+  Trophy,
+  Quote,
+  CalendarCheck,
   type LucideIcon,
 } from "lucide-react";
 
@@ -300,6 +310,534 @@ async function fetchFundingInsights() {
     });
 
   return activeFetchPromise;
+}
+
+/* ============================================================
+   MENTOR HUB — mock data + types
+   ============================================================ */
+
+interface Mentor {
+  id: string;
+  name: string;
+  role: string;
+  avatarInitials: string;
+  avatarGradient: string;
+  rating: number;
+  reviews: number;
+  yearsExperience: number;
+  expertise: string[];
+  availability: "Available Today" | "Available Tomorrow" | "Busy this week";
+  industries: string[];
+  languages: string[];
+  achievements: string[];
+  about: string;
+  testimonials: { name: string; business: string; quote: string }[];
+}
+
+const MENTORS: Mentor[] = [
+  {
+    id: "priya-sharma",
+    name: "Priya Sharma",
+    role: "Funding Advisor",
+    avatarInitials: "PS",
+    avatarGradient: "from-emerald-400 to-teal-600",
+    rating: 4.9,
+    reviews: 128,
+    yearsExperience: 9,
+    expertise: ["MSME Loans", "Mudra Yojana", "Pitch Prep"],
+    availability: "Available Today",
+    industries: ["Retail", "Manufacturing", "Services"],
+    languages: ["English", "Hindi"],
+    achievements: [
+      "Helped 300+ MSMEs secure funding",
+      "Ex-Relationship Manager, HDFC Bank",
+      "Certified MSME Credit Counsellor",
+    ],
+    about:
+      "Priya has spent close to a decade helping small business owners navigate the maze of government schemes and bank paperwork. She specializes in translating messy transaction histories into loan-ready credit stories.",
+    testimonials: [
+      { name: "Anita Rao", business: "Rao Textiles", quote: "Priya got our Mudra loan approved in 3 weeks flat." },
+      { name: "Sunil Deshmukh", business: "Deshmukh Hardware", quote: "Clear, patient, and always responsive." },
+    ],
+  },
+  {
+    id: "rahul-mehta",
+    name: "Rahul Mehta",
+    role: "GST Expert",
+    avatarInitials: "RM",
+    avatarGradient: "from-indigo-400 to-blue-600",
+    rating: 4.8,
+    reviews: 96,
+    yearsExperience: 7,
+    expertise: ["GST Filing", "Tax Compliance", "Bookkeeping"],
+    availability: "Available Tomorrow",
+    industries: ["E-commerce", "Food & Grocery", "Wholesale"],
+    languages: ["English", "Hindi", "Gujarati"],
+    achievements: [
+      "Chartered Accountant, ICAI",
+      "Filed 1,000+ GST returns",
+      "Speaker at MSME Tax Summit 2024",
+    ],
+    about:
+      "Rahul simplifies GST and tax compliance for small businesses so owners can focus on growth instead of paperwork. He's known for catching costly filing mistakes before they happen.",
+    testimonials: [
+      { name: "Kavita Joshi", business: "Joshi Kirana Store", quote: "Rahul saved us from a GST penalty we didn't even know about." },
+      { name: "Imran Sheikh", business: "Sheikh Traders", quote: "Super thorough and easy to reach on WhatsApp." },
+    ],
+  },
+  {
+    id: "neha-gupta",
+    name: "Neha Gupta",
+    role: "Marketing Mentor",
+    avatarInitials: "NG",
+    avatarGradient: "from-rose-400 to-pink-600",
+    rating: 4.7,
+    reviews: 154,
+    yearsExperience: 6,
+    expertise: ["Customer Retention", "Social Media", "Local Ads"],
+    availability: "Available Today",
+    industries: ["Fashion", "Beauty & Wellness", "F&B"],
+    languages: ["English", "Hindi"],
+    achievements: [
+      "Grew 50+ local brands on Instagram",
+      "Ex-Marketing Lead, D2C startup",
+      "Google Digital Garage Certified Trainer",
+    ],
+    about:
+      "Neha helps small businesses turn one-time buyers into loyal repeat customers using low-cost, high-impact marketing tactics tailored for local shops.",
+    testimonials: [
+      { name: "Farah Khan", business: "Farah's Boutique", quote: "Our repeat customer rate doubled in two months." },
+      { name: "Vikram Nair", business: "Nair Bakes", quote: "Practical advice, no fluff. Loved working with Neha." },
+    ],
+  },
+  {
+    id: "arjun-verma",
+    name: "Arjun Verma",
+    role: "Inventory Specialist",
+    avatarInitials: "AV",
+    avatarGradient: "from-amber-400 to-orange-600",
+    rating: 4.6,
+    reviews: 82,
+    yearsExperience: 8,
+    expertise: ["Stock Planning", "Supply Chain", "Vendor Negotiation"],
+    availability: "Busy this week",
+    industries: ["Electronics", "Agriculture", "Retail"],
+    languages: ["English", "Hindi", "Punjabi"],
+    achievements: [
+      "Reduced stockouts by 40% for 60+ shops",
+      "Former Supply Chain Manager, regional FMCG distributor",
+      "Certified Inventory Management Professional",
+    ],
+    about:
+      "Arjun works with shop owners to build lean, reliable inventory systems — avoiding both stockouts and overstocking — so cash isn't stuck on shelves.",
+    testimonials: [
+      { name: "Deepak Chawla", business: "Chawla Electronics", quote: "Never run out of best-sellers anymore." },
+      { name: "Om Prakash", business: "OP Agro Supplies", quote: "Arjun's reorder plan freed up a lot of working capital." },
+    ],
+  },
+];
+
+function getAIRecommendation({
+  score,
+  repeatCustomers,
+  totalCustomers,
+  lowStockCount,
+}: {
+  score?: number;
+  repeatCustomers: number;
+  totalCustomers: number;
+  lowStockCount: number;
+}) {
+  const repeatRate = totalCustomers > 0 ? repeatCustomers / totalCustomers : 0;
+
+  if (typeof score === "number" && score >= 70) {
+    return {
+      mentor: MENTORS.find((m) => m.role === "Funding Advisor")!,
+      message:
+        "Based on your business profile, we recommend connecting with a Funding Advisor before applying for business loans.",
+    };
+  }
+  if (totalCustomers > 0 && repeatRate < 0.5) {
+    return {
+      mentor: MENTORS.find((m) => m.role === "Marketing Mentor")!,
+      message:
+        "Your repeat customer rate has room to grow — a Marketing Mentor can help you turn one-time buyers into loyal regulars.",
+    };
+  }
+  if (lowStockCount > 0) {
+    return {
+      mentor: MENTORS.find((m) => m.role === "Inventory Specialist")!,
+      message:
+        "A few of your products are running low on stock. An Inventory Specialist can help you plan reorders before you lose sales.",
+    };
+  }
+  return {
+    mentor: MENTORS.find((m) => m.role === "GST Expert")!,
+    message:
+      "Keep your momentum going — a Business Growth Mentor can help you plan your next expansion step with confidence.",
+  };
+}
+
+function StarRating({ rating }: { rating: number }) {
+  return (
+    <div className="flex items-center gap-1">
+      <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+      <span className="text-xs font-bold text-slate-800">{rating.toFixed(1)}</span>
+    </div>
+  );
+}
+
+function AvailabilityBadge({ availability }: { availability: Mentor["availability"] }) {
+  const styles: Record<Mentor["availability"], string> = {
+    "Available Today": "bg-emerald-100 text-emerald-700",
+    "Available Tomorrow": "bg-amber-100 text-amber-700",
+    "Busy this week": "bg-slate-200 text-slate-600",
+  };
+  const dot: Record<Mentor["availability"], string> = {
+    "Available Today": "bg-emerald-500",
+    "Available Tomorrow": "bg-amber-500",
+    "Busy this week": "bg-slate-400",
+  };
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold ${styles[availability]}`}>
+      <span className={`h-1.5 w-1.5 rounded-full ${dot[availability]}`} />
+      {availability}
+    </span>
+  );
+}
+
+function Toast({ message, onClose }: { message: { title: string; body: string } | null; onClose: () => void }) {
+  useEffect(() => {
+    if (!message) return;
+    const t = setTimeout(onClose, 5000);
+    return () => clearTimeout(t);
+  }, [message, onClose]);
+
+  if (!message) return null;
+
+  return (
+    <div className="fixed bottom-6 right-6 z-[100] w-[90vw] max-w-sm animate-[fadeIn_0.2s_ease-out]">
+      <div className="flex items-start gap-3 rounded-2xl border border-emerald-100 bg-white/95 p-4 shadow-2xl shadow-emerald-900/10 backdrop-blur">
+        <div className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-emerald-100">
+          <CheckCircle2 className="h-4.5 w-4.5 text-emerald-600" />
+        </div>
+        <div className="flex-1">
+          <div className="text-sm font-bold text-slate-900">{message.title}</div>
+          <div className="mt-0.5 text-xs text-slate-500">{message.body}</div>
+        </div>
+        <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ModalShell({ children, onClose, maxWidth = "max-w-lg" }: { children: React.ReactNode; onClose: () => void; maxWidth?: string }) {
+  return (
+    <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onClose} />
+      <div className={`glass-card relative w-full ${maxWidth} max-h-[85vh] overflow-y-auto rounded-3xl p-6 shadow-2xl animate-[fadeIn_0.15s_ease-out] sm:p-8`}>
+        <button
+          onClick={onClose}
+          className="absolute right-5 top-5 grid h-8 w-8 place-items-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-slate-200 hover:text-slate-700"
+        >
+          <X className="h-4 w-4" />
+        </button>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function BookSessionModal({
+  mentor,
+  onClose,
+  onConfirm,
+}: {
+  mentor: Mentor;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  const slots = ["Tomorrow, 11:00 AM", "Tomorrow, 2:00 PM", "Tomorrow, 5:00 PM"];
+  const [selectedSlot, setSelectedSlot] = useState(slots[0]);
+
+  return (
+    <ModalShell onClose={onClose}>
+      <div className="flex items-center gap-3">
+        <div className={`grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-gradient-to-br ${mentor.avatarGradient} text-base font-bold text-white`}>
+          {mentor.avatarInitials}
+        </div>
+        <div>
+          <div className="text-xs font-bold uppercase tracking-wide text-emerald-600">Book a session</div>
+          <h3 className="text-lg font-extrabold text-slate-900">{mentor.name}</h3>
+          <div className="text-xs text-slate-500">{mentor.role}</div>
+        </div>
+      </div>
+
+      <div className="mt-6">
+        <div className="flex items-center gap-2 text-sm font-bold text-slate-800">
+          <CalendarCheck className="h-4 w-4 text-emerald-600" />
+          Available slots
+        </div>
+        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+          {slots.map((slot) => (
+            <button
+              key={slot}
+              type="button"
+              onClick={() => setSelectedSlot(slot)}
+              className={`flex flex-col items-center gap-1 rounded-2xl border p-3 text-sm font-semibold transition ${
+                selectedSlot === slot
+                  ? "border-emerald-500 bg-emerald-50 text-emerald-700 shadow-sm"
+                  : "border-slate-200 bg-white text-slate-600 hover:border-emerald-200 hover:bg-emerald-50/50"
+              }`}
+            >
+              <Clock className="h-3.5 w-3.5" />
+              {slot.replace("Tomorrow, ", "")}
+            </button>
+          ))}
+        </div>
+        <div className="mt-1 text-xs text-slate-400">All slots shown are for Tomorrow.</div>
+      </div>
+
+      <button
+        onClick={onConfirm}
+        className="mt-6 w-full rounded-full bg-emerald-600 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-500/20 transition hover:bg-emerald-700"
+      >
+        Confirm Booking
+      </button>
+    </ModalShell>
+  );
+}
+
+function ViewProfileModal({ mentor, onClose, onBook }: { mentor: Mentor; onClose: () => void; onBook: () => void }) {
+  return (
+    <ModalShell onClose={onClose} maxWidth="max-w-2xl">
+      <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
+        <div className={`grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-gradient-to-br ${mentor.avatarGradient} text-xl font-bold text-white`}>
+          {mentor.avatarInitials}
+        </div>
+        <div className="flex-1">
+          <h3 className="text-xl font-extrabold text-slate-900">{mentor.name}</h3>
+          <div className="text-sm font-semibold text-emerald-600">{mentor.role}</div>
+          <div className="mt-1 flex items-center gap-3">
+            <StarRating rating={mentor.rating} />
+            <span className="text-xs text-slate-400">({mentor.reviews} reviews)</span>
+            <AvailabilityBadge availability={mentor.availability} />
+          </div>
+        </div>
+      </div>
+
+      <p className="mt-5 text-sm leading-6 text-slate-600">{mentor.about}</p>
+
+      <div className="mt-5 grid gap-4 sm:grid-cols-2">
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+            <GraduationCap className="h-3.5 w-3.5 text-emerald-600" /> Experience
+          </div>
+          <div className="mt-2 text-sm font-semibold text-slate-800">{mentor.yearsExperience} years mentoring MSMEs</div>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+            <Building2 className="h-3.5 w-3.5 text-emerald-600" /> Industries
+          </div>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {mentor.industries.map((ind) => (
+              <span key={ind} className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">{ind}</span>
+            ))}
+          </div>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+            <Globe2 className="h-3.5 w-3.5 text-emerald-600" /> Languages
+          </div>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {mentor.languages.map((lang) => (
+              <span key={lang} className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">{lang}</span>
+            ))}
+          </div>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+            <Trophy className="h-3.5 w-3.5 text-emerald-600" /> Achievements
+          </div>
+          <ul className="mt-2 space-y-1 text-xs text-slate-600">
+            {mentor.achievements.map((a) => (
+              <li key={a}>• {a}</li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      <div className="mt-5">
+        <div className="text-xs font-bold uppercase tracking-wide text-slate-500">Testimonials</div>
+        <div className="mt-2 grid gap-3 sm:grid-cols-2">
+          {mentor.testimonials.map((t) => (
+            <div key={t.name} className="rounded-2xl bg-emerald-50/70 p-4">
+              <Quote className="h-3.5 w-3.5 text-emerald-500" />
+              <p className="mt-1 text-xs italic text-slate-700">"{t.quote}"</p>
+              <div className="mt-2 text-[11px] font-bold text-slate-800">{t.name}</div>
+              <div className="text-[10px] text-slate-500">{t.business}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <button
+        onClick={onBook}
+        className="mt-6 w-full rounded-full bg-emerald-600 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-500/20 transition hover:bg-emerald-700"
+      >
+        Book Session
+      </button>
+    </ModalShell>
+  );
+}
+
+function MentorCard({
+  mentor,
+  onBook,
+  onViewProfile,
+}: {
+  mentor: Mentor;
+  onBook: () => void;
+  onViewProfile: () => void;
+}) {
+  return (
+    <div className="group flex h-full flex-col rounded-3xl border border-emerald-100 bg-white/80 p-5 shadow-sm backdrop-blur transition duration-200 hover:-translate-y-1 hover:shadow-lg hover:shadow-emerald-500/10">
+      <div className="flex items-start gap-3">
+        <div className={`grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-gradient-to-br ${mentor.avatarGradient} text-sm font-bold text-white shadow-sm`}>
+          {mentor.avatarInitials}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="truncate font-bold text-slate-900">{mentor.name}</div>
+          <div className="text-xs font-semibold text-emerald-600">{mentor.role}</div>
+          <div className="mt-1 flex items-center gap-2">
+            <StarRating rating={mentor.rating} />
+            <span className="text-[10px] text-slate-400">({mentor.reviews})</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-3 flex items-center gap-1.5 text-[11px] text-slate-500">
+        <Briefcase className="h-3 w-3" />
+        {mentor.yearsExperience} yrs experience
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        {mentor.expertise.map((tag) => (
+          <span key={tag} className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700">
+            {tag}
+          </span>
+        ))}
+      </div>
+
+      <div className="mt-4">
+        <AvailabilityBadge availability={mentor.availability} />
+      </div>
+
+      <div className="mt-4 flex flex-1 items-end gap-2">
+        <button
+          onClick={onBook}
+          className="flex-1 rounded-full bg-emerald-600 py-2 text-xs font-bold text-white transition hover:bg-emerald-700"
+        >
+          Book Session
+        </button>
+        <button
+          onClick={onViewProfile}
+          className="flex-1 rounded-full border border-slate-200 bg-white py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-50"
+        >
+          View Profile
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function MentorHub({
+  score,
+  repeatCustomers,
+  totalCustomers,
+  lowStockCount,
+}: {
+  score?: number;
+  repeatCustomers: number;
+  totalCustomers: number;
+  lowStockCount: number;
+}) {
+  const [bookingMentor, setBookingMentor] = useState<Mentor | null>(null);
+  const [profileMentor, setProfileMentor] = useState<Mentor | null>(null);
+  const [toast, setToast] = useState<{ title: string; body: string } | null>(null);
+
+  const recommendation = getAIRecommendation({ score, repeatCustomers, totalCustomers, lowStockCount });
+
+  function handleConfirmBooking() {
+    setBookingMentor(null);
+    setToast({
+      title: "✅ Session request sent.",
+      body: "Our team will contact you within 24 hours.",
+    });
+  }
+
+  return (
+    <div className="mt-10">
+      <div className="mb-6">
+        <h2 className="text-lg font-extrabold text-slate-900">👩‍🏫 Mentor Hub</h2>
+        <p className="mt-1 text-sm text-slate-500">Connect with verified experts who can help your business grow.</p>
+      </div>
+
+      {/* AI Recommendation banner */}
+      <div className="mb-6 flex flex-col gap-4 rounded-3xl border border-emerald-200 bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white shadow-sm">
+            <Sparkles className="h-4.5 w-4.5 text-emerald-600" />
+          </div>
+          <div>
+            <div className="text-xs font-bold uppercase tracking-wide text-emerald-700">✨ AI Recommendation</div>
+            <p className="mt-1 text-sm font-medium text-slate-700">{recommendation.message}</p>
+          </div>
+        </div>
+        <button
+          onClick={() => setBookingMentor(recommendation.mentor)}
+          className="shrink-0 rounded-full bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-emerald-500/20 transition hover:bg-emerald-700"
+        >
+          Connect Now
+        </button>
+      </div>
+
+      {/* Mentor cards */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 auto-rows-fr">
+        {MENTORS.map((mentor) => (
+          <MentorCard
+            key={mentor.id}
+            mentor={mentor}
+            onBook={() => setBookingMentor(mentor)}
+            onViewProfile={() => setProfileMentor(mentor)}
+          />
+        ))}
+      </div>
+
+      {bookingMentor && (
+        <BookSessionModal
+          mentor={bookingMentor}
+          onClose={() => setBookingMentor(null)}
+          onConfirm={handleConfirmBooking}
+        />
+      )}
+
+      {profileMentor && (
+        <ViewProfileModal
+          mentor={profileMentor}
+          onClose={() => setProfileMentor(null)}
+          onBook={() => {
+            setProfileMentor(null);
+            setBookingMentor(profileMentor);
+          }}
+        />
+      )}
+
+      <Toast message={toast} onClose={() => setToast(null)} />
+    </div>
+  );
 }
 
 export default function FundingPage() {
@@ -693,6 +1231,14 @@ Business Health Score
               ))
             )}
           </div>
+
+          {/* ---- NEW: Mentor Hub ecosystem, appended below Peer Growth Circle ---- */}
+          <MentorHub
+            score={score}
+            repeatCustomers={repeatCustomers}
+            totalCustomers={totalCustomers}
+            lowStockCount={lowStockItems.length}
+          />
         </section>
       )}
     </AppShell>
